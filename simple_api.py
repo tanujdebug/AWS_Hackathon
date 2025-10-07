@@ -108,13 +108,25 @@ async def receive_telemetry(telemetry: TelemetryRequest):
 async def process_detected_person(person_data: Dict, drone_position: Dict):
     """Process detected person and calculate survival likelihood"""
     try:
-        # Simple survival likelihood calculation
+        # Enhanced survival likelihood calculation prioritizing severe patients
         injury_level = person_data.get('injury_level', 'minor')
-        injury_scores = {'none': 0.9, 'minor': 0.7, 'severe': 0.4, 'unconscious': 0.2}
+        
+        # Base survival scores (severe patients get higher priority scores)
+        injury_scores = {
+            'none': 0.9, 
+            'minor': 0.7, 
+            'severe': 0.3,  # Lower survival but higher priority
+            'unconscious': 0.15  # Lowest survival but highest priority
+        }
         survival_likelihood = injury_scores.get(injury_level, 0.5)
         
-        # Add some randomness
-        survival_likelihood += random.uniform(-0.1, 0.1)
+        # Add randomness but keep severe patients as high priority
+        if injury_level in ['severe', 'unconscious']:
+            # Less randomness for severe patients to maintain priority
+            survival_likelihood += random.uniform(-0.05, 0.05)
+        else:
+            survival_likelihood += random.uniform(-0.1, 0.1)
+        
         survival_likelihood = max(0.0, min(1.0, survival_likelihood))
         
         # Create victim object
@@ -125,7 +137,7 @@ async def process_detected_person(person_data: Dict, drone_position: Dict):
             'survival_likelihood': survival_likelihood,
             'injury_level': person_data['injury_level'],
             'time_detected': datetime.now(),
-            'priority_score': survival_likelihood * 100
+            'priority_score': (survival_likelihood * 100) + (50 if injury_level in ['severe', 'unconscious'] else 0)
         }
         
         # Add to victims data

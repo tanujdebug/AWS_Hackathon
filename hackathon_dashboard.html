@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚁 Drone Swarm Earthquake Rescue - Live Demo</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 15px 20px;
+            text-align: center;
+            position: relative;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 5px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            height: calc(100vh - 80px);
+            gap: 0;
+        }
+        
+        .sidebar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            overflow-y: auto;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        }
+        
+        .map-container {
+            position: relative;
+            background: #f0f2f5;
+        }
+        
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: transform 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-2px);
+        }
+        
+        .stat-title {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .section {
+            margin-bottom: 25px;
+        }
+        
+        .section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 5px;
+        }
+        
+        .victim-item, .drone-item, .route-item {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+        }
+        
+        .victim-item:hover, .drone-item:hover, .route-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .victim-item {
+            border-left-color: #e74c3c;
+        }
+        
+        .drone-item {
+            border-left-color: #3498db;
+        }
+        
+        .route-item {
+            border-left-color: #27ae60;
+        }
+        
+        .item-id {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 5px;
+        }
+        
+        .item-status {
+            font-size: 14px;
+            color: #666;
+            margin: 3px 0;
+        }
+        
+        .survival-rate {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        
+        .battery-level {
+            color: #3498db;
+            font-weight: bold;
+        }
+        
+        .injury-level {
+            color: #f39c12;
+            font-weight: bold;
+        }
+        
+        .live-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #27ae60;
+            animation: pulse 2s infinite;
+            margin-right: 8px;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .timestamp {
+            font-size: 12px;
+            color: #999;
+            text-align: center;
+            margin-top: 10px;
+        }
+        
+        .alert {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚁 Drone Swarm Earthquake Rescue System</h1>
+        <p>Real-time Disaster Response Coordination • Live Demo</p>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <div class="status-grid">
+                <div class="stat-card">
+                    <div class="stat-title">Active Drones</div>
+                    <div class="stat-value" id="active-drones">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Victims Found</div>
+                    <div class="stat-value" id="total-victims">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Responders</div>
+                    <div class="stat-value" id="available-responders">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Survival Rate</div>
+                    <div class="stat-value" id="avg-survival">0%</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>🚨 Priority Victims</h3>
+                <div id="victims-list">
+                    <div class="alert">Loading victims...</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>🚁 Active Drones</h3>
+                <div id="drones-list">
+                    <div class="alert">Loading drones...</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>🚑 Rescue Routes</h3>
+                <div id="routes-list">
+                    <div class="alert">Loading routes...</div>
+                </div>
+            </div>
+
+            <div class="timestamp" id="last-update">
+                <span class="live-indicator"></span>Last updated: Loading...
+            </div>
+        </div>
+
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize map centered on Los Angeles
+        const map = L.map('map').setView([34.0522, -118.2437], 14);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Store markers and lines
+        const droneMarkers = {};
+        const victimMarkers = {};
+        const routeLines = {};
+        const responderMarkers = {};
+
+        // API base URL
+        const API_BASE = 'http://localhost:8000';
+
+        // Fetch and display data
+        async function fetchDashboardData() {
+            try {
+                const response = await fetch(`${API_BASE}/dashboard/data`);
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    updateSystemStatus(data.system_status);
+                    updateVictims(data.victims);
+                    updateDrones(data.telemetry);
+                    updateRoutes(data.routes);
+                    updateMap(data.telemetry, data.victims, data.routes);
+                    updateTimestamp();
+                }
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                showError('Connection lost - attempting to reconnect...');
+            }
+        }
+
+        function updateSystemStatus(status) {
+            document.getElementById('active-drones').textContent = status.active_drones || 0;
+            document.getElementById('total-victims').textContent = status.total_victims || 0;
+            document.getElementById('available-responders').textContent = status.available_responders || 0;
+            document.getElementById('avg-survival').textContent = 
+                Math.round((status.average_survival_likelihood || 0) * 100) + '%';
+        }
+
+        function updateVictims(victims) {
+            const container = document.getElementById('victims-list');
+            if (victims.length === 0) {
+                container.innerHTML = '<div class="alert">No victims detected yet</div>';
+                return;
+            }
+
+            container.innerHTML = victims.slice(0, 8).map(victim => `
+                <div class="victim-item">
+                    <div class="item-id">🚨 Victim ${victim.id}</div>
+                    <div class="item-status">
+                        <span class="survival-rate">Survival: ${Math.round(victim.survival_likelihood * 100)}%</span>
+                    </div>
+                    <div class="item-status">
+                        <span class="injury-level">Injury: ${victim.injury_level}</span>
+                    </div>
+                    <div class="item-status">Priority: ${Math.round(victim.priority_score)}</div>
+                </div>
+            `).join('');
+        }
+
+        function updateDrones(telemetry) {
+            const container = document.getElementById('drones-list');
+            if (telemetry.length === 0) {
+                container.innerHTML = '<div class="alert">No drone data</div>';
+                return;
+            }
+
+            container.innerHTML = telemetry.slice(0, 8).map(drone => `
+                <div class="drone-item">
+                    <div class="item-id">🚁 Drone ${drone.drone_id}</div>
+                    <div class="item-status">
+                        <span class="battery-level">Battery: ${drone.battery_pct}%</span>
+                    </div>
+                    <div class="item-status">Status: ${drone.status}</div>
+                    <div class="item-status">Speed: ${drone.speed_m_s} m/s</div>
+                </div>
+            `).join('');
+        }
+
+        function updateRoutes(routes) {
+            const container = document.getElementById('routes-list');
+            if (routes.length === 0) {
+                container.innerHTML = '<div class="alert">No active routes</div>';
+                return;
+            }
+
+            container.innerHTML = routes.map(route => `
+                <div class="route-item">
+                    <div class="item-id">🚑 Responder ${route.responder_id}</div>
+                    <div class="item-status">Distance: ${Math.round(route.total_distance/1000)}km</div>
+                    <div class="item-status">Time: ${route.estimated_time.toFixed(1)}h</div>
+                    <div class="item-status">Victims: ${route.victims_served.length}</div>
+                </div>
+            `).join('');
+        }
+
+        function updateMap(telemetry, victims, routes) {
+            // Clear existing markers
+            Object.values(droneMarkers).forEach(marker => map.removeLayer(marker));
+            Object.values(victimMarkers).forEach(marker => map.removeLayer(marker));
+            Object.values(routeLines).forEach(line => map.removeLayer(line));
+
+            // Add drone markers
+            telemetry.forEach(drone => {
+                const batteryColor = drone.battery_pct > 50 ? 'green' : drone.battery_pct > 20 ? 'orange' : 'red';
+                const marker = L.circleMarker([drone.position.lat, drone.position.lon], {
+                    radius: 8,
+                    fillColor: batteryColor,
+                    color: 'white',
+                    weight: 2,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).bindPopup(`
+                    <strong>🚁 Drone ${drone.drone_id}</strong><br>
+                    Status: ${drone.status}<br>
+                    Battery: ${drone.battery_pct}%<br>
+                    Speed: ${drone.speed_m_s} m/s<br>
+                    Altitude: ${drone.position.alt_m} m
+                `);
+                marker.addTo(map);
+                droneMarkers[drone.drone_id] = marker;
+            });
+
+            // Add victim markers
+            victims.forEach(victim => {
+                const color = victim.survival_likelihood > 0.7 ? 'green' : 
+                             victim.survival_likelihood > 0.4 ? 'orange' : 'red';
+                const marker = L.circleMarker([victim.lat, victim.lon], {
+                    radius: 10,
+                    fillColor: color,
+                    color: 'white',
+                    weight: 3,
+                    opacity: 1,
+                    fillOpacity: 0.8
+                }).bindPopup(`
+                    <strong>🚨 Victim ${victim.id}</strong><br>
+                    Survival: ${Math.round(victim.survival_likelihood * 100)}%<br>
+                    Injury: ${victim.injury_level}<br>
+                    Priority: ${Math.round(victim.priority_score)}
+                `);
+                marker.addTo(map);
+                victimMarkers[victim.id] = marker;
+            });
+
+            // Add route lines
+            routes.forEach(route => {
+                if (route.route && route.route.length > 0) {
+                    const routeCoords = route.route.map(victimId => {
+                        const victim = victims.find(v => v.id === victimId);
+                        return victim ? [victim.lat, victim.lon] : null;
+                    }).filter(coord => coord !== null);
+                    
+                    if (routeCoords.length > 0) {
+                        const line = L.polyline(routeCoords, {
+                            color: '#e74c3c',
+                            weight: 4,
+                            opacity: 0.8,
+                            dashArray: '10, 10'
+                        }).bindPopup(`🚑 Rescue Route for ${route.responder_id}`);
+                        line.addTo(map);
+                        routeLines[route.responder_id] = line;
+                    }
+                }
+            });
+        }
+
+        function updateTimestamp() {
+            const now = new Date();
+            document.getElementById('last-update').innerHTML = 
+                `<span class="live-indicator"></span>Last updated: ${now.toLocaleTimeString()}`;
+        }
+
+        function showError(message) {
+            const container = document.getElementById('victims-list');
+            container.innerHTML = `<div class="alert error">${message}</div>`;
+        }
+
+        // Initial load
+        fetchDashboardData();
+
+        // Update every 3 seconds for real-time feel
+        setInterval(fetchDashboardData, 3000);
+    </script>
+</body>
+</html>

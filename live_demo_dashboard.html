@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚁 Live Drone Swarm Simulation - Real-time Demo</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #333;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: rgba(0, 0, 0, 0.95);
+            color: white;
+            padding: 15px 20px;
+            text-align: center;
+            position: relative;
+            z-index: 1000;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.4);
+        }
+        
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 8px;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.7);
+            background: linear-gradient(45deg, #00d4ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .header p {
+            font-size: 18px;
+            opacity: 0.9;
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            height: calc(100vh - 90px);
+            gap: 0;
+        }
+        
+        .sidebar {
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(15px);
+            padding: 25px;
+            overflow-y: auto;
+            box-shadow: 3px 0 20px rgba(0,0,0,0.15);
+        }
+        
+        .map-container {
+            position: relative;
+            background: #f0f2f5;
+        }
+        
+        #map {
+            height: 100%;
+            width: 100%;
+        }
+        
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .stat-card:hover::before {
+            left: 100%;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+        }
+        
+        .stat-title {
+            font-size: 16px;
+            opacity: 0.9;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            font-weight: 600;
+        }
+        
+        .stat-value {
+            font-size: 36px;
+            font-weight: bold;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.4);
+        }
+        
+        .section {
+            margin-bottom: 30px;
+        }
+        
+        .section h3 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 20px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 8px;
+            position: relative;
+        }
+        
+        .section h3::after {
+            content: '';
+            position: absolute;
+            bottom: -3px;
+            left: 0;
+            width: 50px;
+            height: 3px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+        }
+        
+        .drone-item, .victim-item, .route-item {
+            background: white;
+            padding: 18px;
+            margin: 12px 0;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border-left: 5px solid #667eea;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .drone-item::before, .victim-item::before, .route-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(102, 126, 234, 0.1), transparent);
+            transition: left 0.5s;
+        }
+        
+        .drone-item:hover::before, .victim-item:hover::before, .route-item:hover::before {
+            left: 100%;
+        }
+        
+        .drone-item:hover, .victim-item:hover, .route-item:hover {
+            transform: translateX(8px) translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        }
+        
+        .drone-item {
+            border-left-color: #3498db;
+        }
+        
+        .victim-item {
+            border-left-color: #e74c3c;
+        }
+        
+        .route-item {
+            border-left-color: #27ae60;
+        }
+        
+        .item-id {
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 8px;
+            color: #2c3e50;
+        }
+        
+        .item-status {
+            font-size: 15px;
+            color: #666;
+            margin: 4px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .status-searching { background: #3498db; color: white; }
+        .status-tracking { background: #e67e22; color: white; }
+        .status-returning { background: #9b59b6; color: white; }
+        .status-idle { background: #95a5a6; color: white; }
+        
+        .battery-level {
+            color: #3498db;
+            font-weight: bold;
+        }
+        
+        .survival-rate {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        
+        .injury-level {
+            color: #f39c12;
+            font-weight: bold;
+        }
+        
+        .live-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #00ff88, #00d4ff);
+            animation: pulse 2s infinite;
+            margin-right: 10px;
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+        
+        @keyframes pulse {
+            0% { 
+                opacity: 1; 
+                transform: scale(1);
+                box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+            }
+            50% { 
+                opacity: 0.7; 
+                transform: scale(1.2);
+                box-shadow: 0 0 20px rgba(0, 255, 136, 0.8);
+            }
+            100% { 
+                opacity: 1; 
+                transform: scale(1);
+                box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+            }
+        }
+        
+        .timestamp {
+            font-size: 14px;
+            color: #666;
+            text-align: center;
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 8px;
+        }
+        
+        .alert {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            text-align: center;
+        }
+        
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .drone-trail {
+            stroke: #3498db;
+            stroke-width: 2;
+            stroke-opacity: 0.6;
+            fill: none;
+            stroke-dasharray: 5, 5;
+            animation: dash 1s linear infinite;
+        }
+        
+        @keyframes dash {
+            to { stroke-dashoffset: -10; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚁 Live Drone Swarm Simulation</h1>
+        <p>Real-time Earthquake Rescue Coordination • Watch Drones Move Live</p>
+    </div>
+
+    <div class="container">
+        <div class="sidebar">
+            <div class="status-grid">
+                <div class="stat-card">
+                    <div class="stat-title">Active Drones</div>
+                    <div class="stat-value" id="active-drones">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Victims Found</div>
+                    <div class="stat-value" id="total-victims">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Responders</div>
+                    <div class="stat-value" id="available-responders">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-title">Survival Rate</div>
+                    <div class="stat-value" id="avg-survival">0%</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>🚁 Live Drone Status</h3>
+                <div id="drones-list">
+                    <div class="alert">Loading drones...</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>🚨 Priority Victims</h3>
+                <div id="victims-list">
+                    <div class="alert">Loading victims...</div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>🚑 Rescue Routes</h3>
+                <div id="routes-list">
+                    <div class="alert">Loading routes...</div>
+                </div>
+            </div>
+
+            <div class="timestamp" id="last-update">
+                <span class="live-indicator"></span>Last updated: Loading...
+            </div>
+        </div>
+
+        <div class="map-container">
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Initialize map centered on Los Angeles
+        const map = L.map('map').setView([34.0522, -118.2437], 13);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Store markers and trails
+        const droneMarkers = {};
+        const victimMarkers = {};
+        const routeLines = {};
+        const droneTrails = {};
+        const lastPositions = {};
+
+        // API base URL
+        const API_BASE = 'http://localhost:8000';
+
+        // Fetch and display data
+        async function fetchDashboardData() {
+            try {
+                const response = await fetch(`${API_BASE}/dashboard/data`);
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    updateSystemStatus(data.system_status);
+                    updateDrones(data.telemetry);
+                    updateVictims(data.victims);
+                    updateRoutes(data.routes);
+                    updateMap(data.telemetry, data.victims, data.routes);
+                    updateTimestamp();
+                }
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                showError('Connection lost - attempting to reconnect...');
+            }
+        }
+
+        function updateSystemStatus(status) {
+            document.getElementById('active-drones').textContent = status.active_drones || 0;
+            document.getElementById('total-victims').textContent = status.total_victims || 0;
+            document.getElementById('available-responders').textContent = status.available_responders || 0;
+            document.getElementById('avg-survival').textContent = 
+                Math.round((status.average_survival_likelihood || 0) * 100) + '%';
+        }
+
+        function updateDrones(telemetry) {
+            const container = document.getElementById('drones-list');
+            if (telemetry.length === 0) {
+                container.innerHTML = '<div class="alert">No drone data</div>';
+                return;
+            }
+
+            container.innerHTML = telemetry.slice(0, 10).map(drone => {
+                const statusClass = `status-${drone.status}`;
+                return `
+                    <div class="drone-item">
+                        <div class="item-id">🚁 Drone ${drone.drone_id}</div>
+                        <div class="item-status">
+                            <span>Battery:</span>
+                            <span class="battery-level">${drone.battery_pct}%</span>
+                        </div>
+                        <div class="item-status">
+                            <span>Status:</span>
+                            <span class="status-badge ${statusClass}">${drone.status}</span>
+                        </div>
+                        <div class="item-status">
+                            <span>Speed:</span>
+                            <span>${drone.speed_m_s} m/s</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateVictims(victims) {
+            const container = document.getElementById('victims-list');
+            if (victims.length === 0) {
+                container.innerHTML = '<div class="alert">No victims detected yet</div>';
+                return;
+            }
+
+            container.innerHTML = victims.slice(0, 8).map(victim => `
+                <div class="victim-item">
+                    <div class="item-id">🚨 Victim ${victim.id}</div>
+                    <div class="item-status">
+                        <span>Survival:</span>
+                        <span class="survival-rate">${Math.round(victim.survival_likelihood * 100)}%</span>
+                    </div>
+                    <div class="item-status">
+                        <span>Injury:</span>
+                        <span class="injury-level">${victim.injury_level}</span>
+                    </div>
+                    <div class="item-status">
+                        <span>Priority:</span>
+                        <span>${Math.round(victim.priority_score)}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateRoutes(routes) {
+            const container = document.getElementById('routes-list');
+            if (routes.length === 0) {
+                container.innerHTML = '<div class="alert">No active routes</div>';
+                return;
+            }
+
+            container.innerHTML = routes.map(route => `
+                <div class="route-item">
+                    <div class="item-id">🚑 Responder ${route.responder_id}</div>
+                    <div class="item-status">
+                        <span>Distance:</span>
+                        <span>${Math.round(route.total_distance/1000)}km</span>
+                    </div>
+                    <div class="item-status">
+                        <span>Time:</span>
+                        <span>${route.estimated_time.toFixed(1)}h</span>
+                    </div>
+                    <div class="item-status">
+                        <span>Victims:</span>
+                        <span>${route.victims_served.length}</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateMap(telemetry, victims, routes) {
+            // Update drone markers with smooth movement
+            telemetry.forEach(drone => {
+                const droneId = drone.drone_id;
+                const newPos = [drone.position.lat, drone.position.lon];
+                
+                // Store last position for trail
+                if (lastPositions[droneId]) {
+                    const lastPos = lastPositions[droneId];
+                    
+                    // Create trail line
+                    if (droneTrails[droneId]) {
+                        map.removeLayer(droneTrails[droneId]);
+                    }
+                    
+                    droneTrails[droneId] = L.polyline([lastPos, newPos], {
+                        color: '#3498db',
+                        weight: 3,
+                        opacity: 0.6,
+                        dashArray: '5, 5'
+                    }).addTo(map);
+                }
+                
+                lastPositions[droneId] = newPos;
+                
+                // Update or create drone marker
+                if (droneMarkers[droneId]) {
+                    droneMarkers[droneId].setLatLng(newPos);
+                } else {
+                    const batteryColor = drone.battery_pct > 50 ? '#27ae60' : 
+                                       drone.battery_pct > 20 ? '#f39c12' : '#e74c3c';
+                    
+                    droneMarkers[droneId] = L.circleMarker(newPos, {
+                        radius: 10,
+                        fillColor: batteryColor,
+                        color: 'white',
+                        weight: 3,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    }).bindPopup(`
+                        <strong>🚁 Drone ${drone.drone_id}</strong><br>
+                        Status: ${drone.status}<br>
+                        Battery: ${drone.battery_pct}%<br>
+                        Speed: ${drone.speed_m_s} m/s<br>
+                        Altitude: ${drone.position.alt_m} m
+                    `).addTo(map);
+                }
+            });
+
+            // Update victim markers
+            victims.forEach(victim => {
+                if (!victimMarkers[victim.id]) {
+                    const color = victim.survival_likelihood > 0.7 ? '#27ae60' : 
+                                 victim.survival_likelihood > 0.4 ? '#f39c12' : '#e74c3c';
+                    
+                    victimMarkers[victim.id] = L.circleMarker([victim.lat, victim.lon], {
+                        radius: 12,
+                        fillColor: color,
+                        color: 'white',
+                        weight: 3,
+                        opacity: 1,
+                        fillOpacity: 0.8
+                    }).bindPopup(`
+                        <strong>🚨 Victim ${victim.id}</strong><br>
+                        Survival: ${Math.round(victim.survival_likelihood * 100)}%<br>
+                        Injury: ${victim.injury_level}<br>
+                        Priority: ${Math.round(victim.priority_score)}
+                    `).addTo(map);
+                }
+            });
+
+            // Update route lines
+            routes.forEach(route => {
+                if (route.route && route.route.length > 0) {
+                    const routeCoords = route.route.map(victimId => {
+                        const victim = victims.find(v => v.id === victimId);
+                        return victim ? [victim.lat, victim.lon] : null;
+                    }).filter(coord => coord !== null);
+                    
+                    if (routeCoords.length > 0) {
+                        if (routeLines[route.responder_id]) {
+                            map.removeLayer(routeLines[route.responder_id]);
+                        }
+                        
+                        routeLines[route.responder_id] = L.polyline(routeCoords, {
+                            color: '#e74c3c',
+                            weight: 5,
+                            opacity: 0.8,
+                            dashArray: '10, 10'
+                        }).bindPopup(`🚑 Rescue Route for ${route.responder_id}`).addTo(map);
+                    }
+                }
+            });
+        }
+
+        function updateTimestamp() {
+            const now = new Date();
+            document.getElementById('last-update').innerHTML = 
+                `<span class="live-indicator"></span>Last updated: ${now.toLocaleTimeString()}`;
+        }
+
+        function showError(message) {
+            const container = document.getElementById('drones-list');
+            container.innerHTML = `<div class="alert error">${message}</div>`;
+        }
+
+        // Initial load
+        fetchDashboardData();
+
+        // Update every 2 seconds for real-time movement
+        setInterval(fetchDashboardData, 2000);
+    </script>
+</body>
+</html>
